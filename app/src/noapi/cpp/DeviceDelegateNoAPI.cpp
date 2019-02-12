@@ -31,6 +31,7 @@ struct DeviceDelegateNoAPI::State {
   vrb::CameraSimplePtr camera;
   vrb::Color clearColor;
   float heading;
+  float pitch;
   vrb::Matrix headingMatrix;
   vrb::Vector position;
   bool clicked;
@@ -40,6 +41,7 @@ struct DeviceDelegateNoAPI::State {
   State()
       : renderMode(device::RenderMode::StandAlone)
       , heading(0.0f)
+      , pitch(0.0f)
       , headingMatrix(vrb::Matrix::Identity())
       , position(sHomePosition)
       , clicked(false)
@@ -66,15 +68,15 @@ struct DeviceDelegateNoAPI::State {
 
   void UpdateDisplay() {
     if (display) {
-      vrb::Matrix fov = vrb::Matrix::PerspectiveMatrixWithResolutionDegrees(width * 0.5f, height,
-                                                                            60.0f, -1.0f,
+      vrb::Matrix fov = vrb::Matrix::PerspectiveMatrixWithResolutionDegrees(height * 0.5f, height,
+                                                                            90.0f, -1.0f,
                                                                             near,
                                                                             far);
       float left(0.0f), right(0.0f), top(0.0f), bottom(0.0f), n2(0.0f), f2(0.0f);
       fov.DecomposePerspectiveDegrees(left, right, top, bottom, n2, f2);
       display->SetFieldOfView(device::Eye::Left, left, right, top, bottom);
       display->SetFieldOfView(device::Eye::Right, left, right, top, bottom);
-      display->SetEyeResolution((int32_t)(width * 0.5f), (int32_t)height);
+      display->SetEyeResolution((int32_t)(height * 0.5f), (int32_t)height);
       display->SetEyeOffset(device::Eye::Left, -0.01f, 0.0f, 0.0f);
       display->SetEyeOffset(device::Eye::Right, 0.01f, 0.0f, 0.0f);
       display->SetCapabilityFlags(device::Position | device::Orientation | device::Present);
@@ -196,15 +198,15 @@ DeviceDelegateNoAPI::EndFrame(const bool aDiscard) {
 
 void
 DeviceDelegateNoAPI::SetViewport(const int aWidth, const int aHeight) {
-  m.camera->SetViewport(aWidth, aHeight);
-  if (aWidth > aHeight) {
-    m.camera->SetFieldOfView(60.0f, -1.0f);
+  m.camera->SetViewport(aHeight, aHeight);
+  if (false) {
+    m.camera->SetFieldOfView(90.0f, -1.0f);
   } else {
-    m.camera->SetFieldOfView(-1.0f, 60.0f);
+    m.camera->SetFieldOfView(-1.0f, 90.0f);
   }
-  VRB_LOG("********* SETTING VIEWPORT %d %d", aWidth, aHeight);
-  VRB_GL_CHECK(glViewport(0, 0, aWidth, aHeight));
-  m.width = (float)aWidth;
+  VRB_LOG("********* SETTING VIEWPORT %d %d", aHeight, aHeight);
+  VRB_GL_CHECK(glViewport(0, 0, aHeight, aHeight));
+  m.width = (float)aHeight;
   m.height = (float)aHeight;
   m.UpdateDisplay();
 }
@@ -225,10 +227,19 @@ DeviceDelegateNoAPI::MoveAxis(const float aX, const float aY, const float aZ) {
   if (!aX && !aY && !aZ) {
     m.position = sHomePosition;
     m.heading = 0.0f;
+    m.pitch = 0.0f;
     m.headingMatrix = vrb::Matrix::Identity();
     return;
   }
   m.position += m.headingMatrix.MultiplyDirection(vrb::Vector(aX, aY, aZ));
+}
+
+static const vrb::Vector sLeft(1.0f, 0.0f, 0.0f);
+
+void
+DeviceDelegateNoAPI::RotatePitch(const float aPitch) {
+  m.pitch += aPitch;
+  m.headingMatrix = vrb::Matrix::Rotation(sLeft, m.pitch);
 }
 
 static const vrb::Vector sUp(0.0f, 1.0f, 0.0f);

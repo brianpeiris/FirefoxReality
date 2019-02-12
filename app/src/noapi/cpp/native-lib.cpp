@@ -72,9 +72,19 @@ JNI_METHOD(void, drawGL)
   BrowserWorld::Instance().Draw();
 }
 
+JNI_METHOD(jbyteArray, captureFrame)
+(JNIEnv *env, jobject, jint width, jint height) {
+  return BrowserWorld::Instance().CaptureFrame(env, width, height);
+}
+
 JNI_METHOD(void, moveAxis)
 (JNIEnv*, jobject, jfloat aX, jfloat aY, jfloat aZ) {
   sDevice->MoveAxis(aX, aY, aZ);
+}
+
+JNI_METHOD(void, rotatePitch)
+(JNIEnv*, jobject, jfloat aPitch) {
+  sDevice->RotatePitch(aPitch);
 }
 
 JNI_METHOD(void, rotateHeading)

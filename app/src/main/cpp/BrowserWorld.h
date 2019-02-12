@@ -38,6 +38,7 @@ public:
   void ShutdownJava();
   void ShutdownGL();
   void Draw();
+  jbyteArray CaptureFrame(JNIEnv *env, jint width, jint height);
   void SetTemporaryFilePath(const std::string& aPath);
   void UpdateEnvironment();
   void UpdatePointerColor();

@@ -1031,6 +1031,17 @@ BrowserWorld::DrawWorld() {
   m.device->EndFrame(false);
 }
 
+jbyteArray
+BrowserWorld::CaptureFrame(JNIEnv *env, int width, int height) {
+  jbyteArray result;
+  size_t size = width * height * 8;
+  result = env->NewByteArray(size);
+  uint8_t *pixels = new uint8_t[size];
+  glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  env->SetByteArrayRegion(result, 0, size, (jbyte *)pixels);
+  return result;
+}
+
 void
 BrowserWorld::DrawImmersive() {
   m.externalVR->SetCompositorEnabled(false);

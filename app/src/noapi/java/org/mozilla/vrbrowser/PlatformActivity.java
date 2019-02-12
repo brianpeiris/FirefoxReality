@@ -6,26 +6,42 @@
 package org.mozilla.vrbrowser;
 
 import android.app.Activity;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageButton;
 
+import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
+
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+interface Capture {
+    void CaptureAndSave(String name);
+}
+
 public class PlatformActivity extends Activity {
     static String LOGTAG = "VRB";
-    static final float ROTATION = 0.098174770424681f;
+    static final float ROTATION = 1.57079632679489662f;
 
     public static boolean filterPermission(final String aPermission) {
         return false;
     }
 
     private GLSurfaceView mView;
+    public int width;
+    public int height;
 
     private final Runnable activityDestroyedRunnable = new Runnable() {
         @Override
@@ -65,6 +81,8 @@ public class PlatformActivity extends Activity {
         mView.setEGLConfigChooser(8, 8, 8, 0, 16, 0);
         //mView.setPreserveEGLContextOnPause(true);
 
+        PlatformActivity self = this;
+
         mView.setRenderer(
                 new GLSurfaceView.Renderer() {
                     @Override
@@ -76,6 +94,8 @@ public class PlatformActivity extends Activity {
                     @Override
                     public void onSurfaceChanged(GL10 gl, int width, int height) {
                         Log.e(LOGTAG, "In onSurfaceChanged");
+                        self.width = width;
+                        self.height = height;
                         updateViewport(width, height);
                     }
 
@@ -215,33 +235,71 @@ public class PlatformActivity extends Activity {
         findViewById(R.id.forward_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                dispatchMoveAxis(0, 0, -1);
+                dispatchRotatePitch(ROTATION);
             }
         });
         findViewById(R.id.backward_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                dispatchMoveAxis(0, 0, 1);
+                dispatchRotatePitch(-ROTATION);
             }
         });
         findViewById(R.id.left_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                dispatchMoveAxis(-1, 0, 0);
+                dispatchMoveAxis(-0.0315f, 0, 0);
             }
         });
 
         findViewById(R.id.right_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                dispatchMoveAxis(1, 0, 0);
+                dispatchMoveAxis(0.0315f, 0, 0);
             }
         });
 
+        PlatformActivity self = this;
         findViewById(R.id.home_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                dispatchMoveAxis(0,0,0);
+
+                long headingDelay = 2000;
+                long captureDelay = 2000;
+                long delay = 0;
+
+                new Handler().postDelayed(() -> dispatchCaptureFrame(self.height, self.height, "negz.png"), delay);
+                delay += captureDelay;
+
+                new Handler().postDelayed(() -> dispatchRotateHeading(ROTATION), delay);
+                delay += headingDelay;
+                new Handler().postDelayed(() -> dispatchCaptureFrame(self.height, self.height, "posx.png"), delay);
+                delay += captureDelay;
+
+                new Handler().postDelayed(() -> dispatchRotateHeading(ROTATION), delay);
+                delay += headingDelay;
+                new Handler().postDelayed(() -> dispatchCaptureFrame(self.height, self.height, "posz.png"), delay);
+                delay += captureDelay;
+
+                new Handler().postDelayed(() -> dispatchRotateHeading(ROTATION), delay);
+                delay += headingDelay;
+                new Handler().postDelayed(() -> dispatchCaptureFrame(self.height, self.height, "negx.png"), delay);
+                delay += captureDelay;
+
+                new Handler().postDelayed(() -> dispatchRotateHeading(ROTATION), delay);
+                delay += headingDelay;
+                new Handler().postDelayed(() -> dispatchRotatePitch(ROTATION), delay);
+                delay += headingDelay;
+                new Handler().postDelayed(() -> dispatchCaptureFrame(self.height, self.height, "posy.png"), delay);
+                delay += captureDelay;
+
+                new Handler().postDelayed(() -> dispatchRotatePitch(-ROTATION), delay);
+                delay += headingDelay;
+                new Handler().postDelayed(() -> dispatchRotatePitch(-ROTATION), delay);
+                delay += headingDelay;
+                new Handler().postDelayed(() -> dispatchCaptureFrame(self.height, self.height, "negy.png"), delay);
+                delay += captureDelay;
+
+                new Handler().postDelayed(() -> Log.i(LOGTAG, "Capture complete"), delay);
             }
         });
 
@@ -269,6 +327,39 @@ public class PlatformActivity extends Activity {
         });
     }
 
+    private void dispatchCaptureFrame(int width, int height, String name) {
+        mView.queueEvent(new Runnable() {
+            @Override
+            public void run() {
+                byte[] bmp = captureFrame(width, height);
+                Bitmap bm = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                ByteBuffer bb = ByteBuffer.wrap(bmp);
+                bb.remaining();
+                bm.copyPixelsFromBuffer(bb);
+                Matrix flip = new Matrix();
+                flip.postScale(1, -1);
+                Bitmap flipped = Bitmap.createBitmap(bm, 0, 0, width, height, flip, true);
+                try {
+                    FileOutputStream fos = openFileOutput(name, Context.MODE_PRIVATE);
+                    flipped.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                    fos.flush();
+                    fos.close();
+                } catch (Exception e) {
+                    Log.e(LOGTAG, "Failed to write file", e);
+                }
+            }
+        });
+    }
+
+    private void dispatchRotatePitch(final float aPitch) {
+        mView.queueEvent(new Runnable() {
+            @Override
+            public void run() {
+                rotatePitch(aPitch);
+            }
+        });
+    }
+
     private void dispatchRotateHeading(final float aHeading) {
         mView.queueEvent(new Runnable() {
             @Override
@@ -284,7 +375,9 @@ public class PlatformActivity extends Activity {
     private native void activityResumed();
     private native void activityDestroyed();
     private native void drawGL();
+    private native byte[] captureFrame(int width, int height);
     private native void moveAxis(float aX, float aY, float aZ);
     private native void rotateHeading(float aHeading);
+    private native void rotatePitch(float aPitch);
     private native void touchEvent(boolean aDown, float aX, float aY);
 }
